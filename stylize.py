@@ -10,6 +10,7 @@ import torch.nn as nn
 import torchvision.transforms
 from torchvision.utils import save_image
 from tqdm import tqdm
+import pdb
 
 parser = argparse.ArgumentParser(description='This script applies the AdaIN style transfer method to arbitrary datasets.')
 parser.add_argument('--content-dir', type=str,
@@ -23,7 +24,7 @@ parser.add_argument('--num-styles', type=int, default=1, help='Number of styles 
 parser.add_argument('--alpha', type=float, default=1.0,
                     help='The weight that controls the degree of \
                           stylization. Should be between 0 and 1')
-parser.add_argument('--extensions', nargs='+', type=str, default=['png', 'jpeg', 'jpg'], help='List of image extensions to scan style and content directory for (case sensitive), default: png, jpeg, jpg')
+parser.add_argument('--extensions', nargs='+', type=str, default=['png', 'jpeg', 'jpg', 'JPEG'], help='List of image extensions to scan style and content directory for (case sensitive), default: png, jpeg, jpg')
 
 # Advanced options
 parser.add_argument('--content-size', type=int, default=0,
@@ -75,6 +76,7 @@ def main():
     assert content_dir.is_dir(), 'Content directory not found'
     dataset = []
     for ext in extensions:
+        #pdb.set_trace()
         dataset += list(content_dir.rglob('*.' + ext))
 
     assert len(dataset) > 0, 'No images with specified extensions found in content directory' + content_dir
@@ -116,7 +118,10 @@ def main():
     # actual style transfer as in AdaIN
     with tqdm(total=len(content_paths)) as pbar:
         for content_path in content_paths:
+            #check if output file already exists
+            rel_path = content_path.relative_to(content_dir)
             try:
+                pdb.set_trace()
                 content_img = Image.open(content_path).convert('RGB')
                 for style_path in random.sample(styles, args.num_styles):
                     style_img = Image.open(style_path).convert('RGB')
