@@ -26,4 +26,4 @@
 
 conda activate ml
 
-python3 stylize.py --content-dir '/user_data/vayzenbe/image_sets/ecoset/train/0001_man' --style-dir '/user_data/vayzenbe/GitHub_Repos/Stylized-ImageNet/code/paintings_raw/train/' --output-dir '/lab_data/behrmannlab/image_sets/stylized-ecoset/train/0001_man'
+python3 stylize.py --content-dir '/user_data/vayzenbe/image_sets/ecoset/train' --style-dir '/user_data/vayzenbe/GitHub_Repos/Stylized-ImageNet/code/paintings_raw/train/' --output-dir '/lab_data/behrmannlab/image_sets/stylized-ecoset/train'

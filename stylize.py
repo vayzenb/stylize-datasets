@@ -10,7 +10,10 @@ import torch.nn as nn
 import torchvision.transforms
 from torchvision.utils import save_image
 from tqdm import tqdm
+from glob import glob as glob
 import pdb
+import pandas as pd
+
 
 parser = argparse.ArgumentParser(description='This script applies the AdaIN style transfer method to arbitrary datasets.')
 parser.add_argument('--content-dir', type=str,
@@ -57,6 +60,19 @@ def style_transfer(vgg, decoder, content, style, alpha=1.0):
     feat = feat * alpha + content_f * (1 - alpha)
     return decoder(feat)
 
+def list_outfiles(path):
+        #glob files in outfolder
+    out_files = glob(f'{path}/*.*')
+    im_list  = pd.DataFrame(out_files, columns=['file_name'])
+
+    #extract original, pre-style, filenames
+    outfile_list = im_list['file_name'].str.split('-stylized-', expand=True) #extract original filename
+    outfile_list = outfile_list.iloc[:,0].str.split('/', expand=True) #extract only target file
+    outfile_list = outfile_list.iloc[:,outfile_list.shape[1]-1]
+
+    return outfile_list
+
+
 def main():
     args = parser.parse_args()
 
@@ -66,6 +82,14 @@ def main():
     style_dir = style_dir.resolve()
     output_dir = Path(args.output_dir)
     output_dir = output_dir.resolve()
+
+    #create output directory if it does not exist
+    if not output_dir.is_dir():
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+
+
+
     assert style_dir.is_dir(), 'Style directory not found'
 
     # collect content files
@@ -120,46 +144,59 @@ def main():
         for content_path in content_paths:
             #check if output file already exists
             rel_path = content_path.relative_to(content_dir)
-            try:
-                pdb.set_trace()
-                content_img = Image.open(content_path).convert('RGB')
-                for style_path in random.sample(styles, args.num_styles):
-                    style_img = Image.open(style_path).convert('RGB')
+            rel_path = content_path.relative_to(content_dir)
+            out_dir = output_dir.joinpath(rel_path.parent)
+            
+            # create directory structure if it does not exist
+            if not out_dir.is_dir():
+                out_dir.mkdir(parents=True)
+                #get list of output files
 
-                    content = content_tf(content_img)
-                    style = style_tf(style_img)
-                    style = style.to(device).unsqueeze(0)
-                    content = content.to(device).unsqueeze(0)
-                    with torch.no_grad():
-                        output = style_transfer(vgg, decoder, content, style,
-                                                args.alpha)
-                    output = output.cpu()
+                outfile_list = list_outfiles(str(out_dir))
 
-                    rel_path = content_path.relative_to(content_dir)
-                    out_dir = output_dir.joinpath(rel_path.parent)
-
-                    # create directory structure if it does not exist
-                    if not out_dir.is_dir():
-                        out_dir.mkdir(parents=True)
-
-                    content_name = content_path.stem
-                    style_name = style_path.stem
-                    out_filename = content_name + '-stylized-' + style_name + content_path.suffix
-                    output_name = out_dir.joinpath(out_filename)
-
-                    save_image(output, output_name, padding=0) #default image padding is 2.
-                    style_img.close()
-                content_img.close()
-            except OSError as e:
-                print('Skipping stylization of %s due to an error' %(content_path))
-                skipped_imgs.append(content_path)
-                continue
-            except RuntimeError as e:
-                print('Skipping stylization of %s due to an error' %(content_path))
-                skipped_imgs.append(content_path)
-                continue
-            finally:
+            
+            #check if file already exists in output folder
+            if outfile_list.str.contains(rel_path.name.split('.')[0]).any():
+                print('File already exists, skipping: ' + rel_path.name)
                 pbar.update(1)
+            else:
+ 
+
+                try:
+                    
+                    content_img = Image.open(content_path).convert('RGB')
+                    for style_path in random.sample(styles, args.num_styles):
+                        style_img = Image.open(style_path).convert('RGB')
+
+                        content = content_tf(content_img)
+                        style = style_tf(style_img)
+                        style = style.to(device).unsqueeze(0)
+                        content = content.to(device).unsqueeze(0)
+                        with torch.no_grad():
+                            output = style_transfer(vgg, decoder, content, style,
+                                                    args.alpha)
+                        output = output.cpu()
+
+
+
+                        content_name = content_path.stem
+                        style_name = style_path.stem
+                        out_filename = content_name + '-stylized-' + style_name + content_path.suffix
+                        output_name = out_dir.joinpath(out_filename)
+
+                        save_image(output, output_name, padding=0) #default image padding is 2.
+                        style_img.close()
+                    content_img.close()
+                except OSError as e:
+                    print('Skipping stylization of %s due to an error' %(content_path))
+                    skipped_imgs.append(content_path)
+                    continue
+                except RuntimeError as e:
+                    print('Skipping stylization of %s due to an error' %(content_path))
+                    skipped_imgs.append(content_path)
+                    continue
+                finally:
+                    pbar.update(1)
 
     if(len(skipped_imgs) > 0):
         with open(output_dir.joinpath('skipped_imgs.txt'), 'w') as f:
